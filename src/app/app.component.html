@@ -1,0 +1,22 @@
+<!-- <div *ngIf="done" style="margin-left: 350px; margin-top: 150px">
+  <button (click)="reset()">New game</button>
+</div> -->
+<div [hidden]="false">
+  <canvas #myCanvas height="{{HEIGHT}}" width='{{WIDTH}}' style='border: 1px solid grey;'></canvas>
+  <span style="margin-left: 50px">move: </span>
+  <i *ngIf="action == 0" style="font-size:36px; color:black">&#8593;</i>
+  <i  *ngIf="action == 3" style="font-size:36px; color:black">&#8595;</i>
+  <i *ngIf="action == 1" style="font-size:36px; color:black">&#8592;</i>
+  <i *ngIf="action == 2" style="font-size:36px; color:black">&#8594;</i>
+
+</div>
+<!-- <div>reward: {{reward}}</div> -->
+<div>score: {{score}}</div>
+<div>highScore: {{highScore}}</div>
+<div>gameNo: {{gameNo}}</div>
+<button (click)="stopLearning()">finish learning</button>
+<button (click)="startLearning(1000)">train slow</button>
+<button (click)="startLearning(100)">train medium</button>
+<button (click)="startLearning(1)">train fast</button>
+
+
