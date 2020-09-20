@@ -94,57 +94,60 @@ export class AppComponent {
     });
 
     this.agent.step = (currentState, currentReward, done) => {
-      let currentAction
-    if(Math.random() < this.agent.epsilon){
-      // currentAction = Math.floor(Math.random() * this.agent.numActions)
-      currentAction = this.getAllPossibleMoves()[Math.floor(Math.random() * (this.agent.numActions - 1))];
-    } else {
-      const modelOutputs = this.model.forward(currentState)
-      currentAction = this.indexOfMax(modelOutputs.data)
+      let currentAction;
+      if (Math.random() < this.agent.epsilon) {
+        // currentAction = Math.floor(Math.random() * this.agent.numActions)
+        currentAction = this.getAllPossibleMoves()[
+          Math.floor(Math.random() * (this.agent.numActions - 1))
+        ];
+      } else {
+        const modelOutputs = this.model.forward(currentState);
+        currentAction = this.indexOfMax(modelOutputs.data);
+      }
 
-    }
+      if (this.agent.previousState && typeof currentReward === "number") {
+        const transition = [
+          this.agent.previousState,
+          this.agent.previousAction,
+          currentReward,
+          currentState,
+          done
+        ];
+        this.agent.transitions[
+          this.agent.transitionCount % this.agent.memorySize
+        ] = transition;
+        this.agent.transitionCount++;
+      }
 
-    if(this.agent.previousState && typeof currentReward === 'number') {
-      const transition = [
-        this.agent.previousState,
-        this.agent.previousAction,
-        currentReward,
-        currentState,
-        done
-      ]
-      this.agent.transitions[this.agent.transitionCount % this.agent.memorySize] = transition
-      this.agent.transitionCount++
-    }
+      this.agent.previousState = done ? null : currentState;
+      this.agent.previousAction = done ? null : currentAction;
 
-    this.agent.previousState  = done ? null : currentState
-    this.agent.previousAction = done ? null : currentAction
-
-    this.agent.epsilon = Math.max(
-      this.agent.finalEpsilon, 
-      this.agent.epsilon - (1 / this.agent.epsilonDecaySteps)
-    )
-    return currentAction
-    }
+      this.agent.epsilon = Math.max(
+        this.agent.finalEpsilon,
+        this.agent.epsilon - 1 / this.agent.epsilonDecaySteps
+      );
+      return currentAction;
+    };
   }
 
-  indexOfMax (arr){
-  if (arr.length === 0) {
-    return -1;
-  }
-  let max = -1;
-  let maxIndex = -1;
-  let allPossibleMoves = this.getAllPossibleMoves();
-  console.log(allPossibleMoves.length)
-  for (let i = 0; i < arr.length; i++) {
-    let moveIsPossible = allPossibleMoves.indexOf(i) !== -1;
-    if (arr[i] > max && moveIsPossible) {
-      maxIndex = i
-      max = arr[i]
+  indexOfMax(arr) {
+    if (arr.length === 0) {
+      return -1;
     }
-  }
+    let max = -1;
+    let maxIndex = -1;
+    let allPossibleMoves = this.getAllPossibleMoves();
+    console.log(allPossibleMoves.length);
+    for (let i = 0; i < arr.length; i++) {
+      let moveIsPossible = allPossibleMoves.indexOf(i) !== -1;
+      if (arr[i] > max && moveIsPossible) {
+        maxIndex = i;
+        max = arr[i];
+      }
+    }
 
-  return maxIndex
-}
+    return maxIndex;
+  }
 
   stopLearning(): void {
     if (this.intervalSub != null) {
@@ -345,20 +348,20 @@ export class AppComponent {
     return result;
   }
 
-  getTailDirection(): number[]{
+  getTailDirection(): number[] {
     let lastTailCoord: Coord = this.snake[0];
     let previous: Coord = this.snake[1];
     let result: number[];
-    if (lastTailCoord.x < previous.x){
+    if (lastTailCoord.x < previous.x) {
       result = [0, 0, 0, 1];
     }
-    if (lastTailCoord.y < previous.x){
+    if (lastTailCoord.y < previous.y) {
       result = [0, 0, 1, 0];
     }
-    if (lastTailCoord.x > previous.x){
+    if (lastTailCoord.x > previous.x) {
       result = [0, 1, 0, 0];
     }
-    if (lastTailCoord.y > previous.x){
+    if (lastTailCoord.y > previous.y) {
       result = [1, 0, 0, 0];
     }
     return result;
