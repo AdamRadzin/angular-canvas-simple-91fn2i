@@ -64,7 +64,6 @@ export class AppComponent {
 
   ngOnInit() {
     this.ctx = this.canvasRef.nativeElement.getContext("2d");
-    // let env = new Snake(this.ctx);
     this.reset();
     setTimeout(() => {
       this.redraw();
@@ -137,7 +136,6 @@ export class AppComponent {
     let max = -1;
     let maxIndex = -1;
     let allPossibleMoves = this.getAllPossibleMoves();
-    console.log(allPossibleMoves.length);
     for (let i = 0; i < arr.length; i++) {
       let moveIsPossible = allPossibleMoves.indexOf(i) !== -1;
       if (arr[i] > max && moveIsPossible) {
@@ -543,37 +541,19 @@ export class AppComponent {
   }
 
   learn(): void {
-    // get these from your environment:
     let observation = ndarray(this.getVisionAsInput());
-    // console.log(observation.data.length);
     let reward = this.reward;
     let done = this.done;
 
-    // console.log(observation, reward, done);
     let action = this.agent.step(observation, reward, done);
-    // `action` is an integer in the range of [0, NUM_ACTIONS)
-
-    // call this whenever ya wanna do a learn step.
-    // you can call this after each `agent.step()`, but you can also call it more or less often.
-    // just keep in mind, depending on the size of your model, this may block for a relatively long time.
-    // this.action = null;
-
+   
     // if (this.gameNo % 32 == 0) {
     let loss = this.agent.learn();
     // console.log(' loss: ', loss);
     // }
 
     let predictedAction: Move = Move[Move[action]];
-    // console.log(predictedAction);
-    // if (predictedAction != null){
-    //   this.action = predictedAction;
-    // }
-    // this.action = predictedAction;
-    // this.action =
-    //   this.getAllPossibleMoves().indexOf(predictedAction) !== -1
-    //     ? predictedAction
-    //     : this.action != null ? this.action : this.getAllPossibleMoves()[this.getRandomInt(0, 3)];
-
+   
     this.action = predictedAction;
     this.makeMove();
     // if (this.gameNo > 200){
@@ -605,10 +585,6 @@ export class AppComponent {
 
   initSnake(): void {
     this.snake = [];
-    // this.ctx.fillStyle = "red";
-    // this.ctx.fillRect(150, 150, 1, 1);
-    // this.ctx.fillRect(151, 150, 1, 1);
-
     this.snake.push({ x: 5, y: 5 }, { x: 6, y: 5 });
   }
 
@@ -662,10 +638,6 @@ export class AppComponent {
       }
     }
 
-    // if (currentCoord.x === this.snake[this.snake.length - 1].x &&currentCoord.y === this.snake[this.snake.length - 1].y ){
-    //   return;
-    // }
-
     if (this.isMoveLosing(currentCoord)) {
       // alert("koniec gry");
       this.done = true;
@@ -673,7 +645,6 @@ export class AppComponent {
       return;
     }
     this.snake.push(currentCoord);
-    // this.ctx.fillRect(currentCoord.x, currentCoord.y, 1, 1);
 
     if (
       currentCoord.x === this.foodSquare.x &&
@@ -683,7 +654,6 @@ export class AppComponent {
       this.score += 1;
       this.reward = 0.7;
     } else {
-      // this.ctx.clearRect(this.snake[0].x, this.snake[0].y, 1, 1);
       this.snake.shift();
       let newCurrentDistanceToFood: number = this.getDistance(
         currentCoord.x,
