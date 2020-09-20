@@ -33,6 +33,7 @@ export class AppComponent {
   private agent: any;
   private doneTraining: boolean = false;
   private currentDistanceToFood: number = 99999999;
+  private movesSinceLastEating: 0;
   @HostListener("window:keydown", ["$event"])
   handleKeyboardEvent(event: KeyboardEvent) {
     let previousSnakeHead = this.snake[this.snake.length - 1];
@@ -546,14 +547,14 @@ export class AppComponent {
     let done = this.done;
 
     let action = this.agent.step(observation, reward, done);
-   
+
     // if (this.gameNo % 32 == 0) {
     let loss = this.agent.learn();
     // console.log(' loss: ', loss);
     // }
 
     let predictedAction: Move = Move[Move[action]];
-   
+
     this.action = predictedAction;
     this.makeMove();
     // if (this.gameNo > 200){
@@ -641,7 +642,8 @@ export class AppComponent {
     if (this.isMoveLosing(currentCoord)) {
       // alert("koniec gry");
       this.done = true;
-      this.reward = -1;
+      this.reward = -1.0;
+      this.movesSinceLastEating = 0;
       return;
     }
     this.snake.push(currentCoord);
@@ -652,7 +654,8 @@ export class AppComponent {
     ) {
       this.dropFoodOnAvailableSquare();
       this.score += 1;
-      this.reward = 0.7;
+      this.reward = 0.9;
+      this.movesSinceLastEating = 0;
     } else {
       this.snake.shift();
       let newCurrentDistanceToFood: number = this.getDistance(
@@ -661,14 +664,47 @@ export class AppComponent {
         this.foodSquare.x,
         this.foodSquare.y
       );
-      this.reward =
-        newCurrentDistanceToFood < this.currentDistanceToFood
-          ? 0.1
-          : newCurrentDistanceToFood == this.currentDistanceToFood
-          ? 0
-          : (this.reward = -0.2);
+      // this.reward =
+      //   newCurrentDistanceToFood < this.currentDistanceToFood
+      //     ? 0.1
+      //     : newCurrentDistanceToFood == this.currentDistanceToFood
+      //     ? 0
+      //     : (this.reward = -0.2);
+
+      // this.movesSinceLastEating++;
+      // let maxIterations: number = 0.7 * this.snake.length + 10;
+      // if (this.movesSinceLastEating >= maxIterations) {
+      //   this.reward = -0.5 / this.snake.length;
+      //   this.movesSinceLastEating = 0;
+      // } else {
+        this.reward = this.calculateRewardByDistance(
+          lastSnakeCoord,
+          currentCoord
+        );
+      // }
+
       this.currentDistanceToFood = newCurrentDistanceToFood;
     }
+  }
+
+  calculateRewardByDistance(curr: Coord, next: Coord): number {
+    let currDistance: number = this.getDistance(
+      curr.x,
+      curr.y,
+      this.foodSquare.x,
+      this.foodSquare.y
+    );
+    let nextDistance: number = this.getDistance(
+      next.x,
+      next.y,
+      this.foodSquare.x,
+      this.foodSquare.y
+    );
+    return (
+      Math.log(
+        (this.snake.length + currDistance) / (this.snake.length + nextDistance)
+      ) / Math.log(this.snake.length)
+    );
   }
 
   isMoveLosing(candidateCoord: Coord): boolean {
