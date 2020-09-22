@@ -33,7 +33,8 @@ export class AppComponent {
   private agent: any;
   private doneTraining: boolean = false;
   private currentDistanceToFood: number = 99999999;
-  private movesSinceLastEating: 0;
+  private movesSinceLastEating: number = 0;
+  private replayMemory: Memory[] = [];
   @HostListener("window:keydown", ["$event"])
   handleKeyboardEvent(event: KeyboardEvent) {
     let previousSnakeHead = this.snake[this.snake.length - 1];
@@ -93,10 +94,9 @@ export class AppComponent {
       gamma: 0.9
     });
 
-    this.agent.step = (currentState, currentReward, done) => {
+    this.agent.predict = (currentState, currentReward, done) => {
       let currentAction;
       if (Math.random() < this.agent.epsilon) {
-        // currentAction = Math.floor(Math.random() * this.agent.numActions)
         currentAction = this.getAllPossibleMoves()[
           Math.floor(Math.random() * (this.agent.numActions - 1))
         ];
@@ -104,6 +104,22 @@ export class AppComponent {
         const modelOutputs = this.model.forward(currentState);
         currentAction = this.indexOfMax(modelOutputs.data);
       }
+      this.agent.epsilon = Math.max(
+        this.agent.finalEpsilon,
+        this.agent.epsilon - 1 / this.agent.epsilonDecaySteps
+      );
+      return currentAction;
+    };
+    this.agent.step = (currentState, currentReward, done, currentAction) => {
+      // let currentAction;
+      // if (Math.random() < this.agent.epsilon) {
+      //   currentAction = this.getAllPossibleMoves()[
+      //     Math.floor(Math.random() * (this.agent.numActions - 1))
+      //   ];
+      // } else {
+      //   const modelOutputs = this.model.forward(currentState);
+      //   currentAction = this.indexOfMax(modelOutputs.data);
+      // }
 
       if (this.agent.previousState && typeof currentReward === "number") {
         const transition = [
@@ -122,10 +138,10 @@ export class AppComponent {
       this.agent.previousState = done ? null : currentState;
       this.agent.previousAction = done ? null : currentAction;
 
-      this.agent.epsilon = Math.max(
-        this.agent.finalEpsilon,
-        this.agent.epsilon - 1 / this.agent.epsilonDecaySteps
-      );
+      // this.agent.epsilon = Math.max(
+      //   this.agent.finalEpsilon,
+      //   this.agent.epsilon - 1 / this.agent.epsilonDecaySteps
+      // );
       return currentAction;
     };
   }
@@ -172,9 +188,56 @@ export class AppComponent {
         }
         this.reset();
       }
-      this.learn();
+      let observation = ndarray(this.getVisionAsInput());
+      this.action = this.agent.predict(observation, this.reward, this.done);
+      this.makeMove();
+      setTimeout(() => {
+        this.redraw();
+      });
+      let memory: Memory = {
+        reward: this.reward,
+        observation: observation,
+        done: this.done,
+        action: Move[Move[this.action]]
+      };
+      // let trainingGap: number = this.getTrainingGap();
+      // if (this.movesSinceLastEating > 0 && this.movesSinceLastEating < trainingGap){
+      //   return;
+      // }
+      this.replayMemory.push(memory);
+      if (true) {
+        // console.log(this.replayMemory);
+        this.replayMemory.forEach(mem => {
+          this.agent.step(mem.observation, mem.reward, mem.done, mem.action);
+          this.agent.learn();
+        });
+        this.replayMemory = [];
+      } else {
+        let maxIterations: number = 0.7 * this.snake.length + 10;
+        if (this.movesSinceLastEating >= maxIterations) {
+          let reward: number = -0.5 / this.snake.length;
+          this.replayMemory.forEach(mem => {
+            this.agent.step(mem.observation, reward, mem.done, mem.action);
+            this.agent.learn();
+          });
+          this.replayMemory = [];
+        }
+      }
+
+      // this.learn();
       i++;
     });
+  }
+
+  getTrainingGap(): number {
+    const k: number = 10;
+    const p: number = 0.4;
+    const q: number = 2;
+
+    if (this.snake.length <= k) {
+      return 0.5 * (this.WIDTH / this.gridScale);
+    }
+    return p * this.snake.length + 2;
   }
 
   mapBoardToArray(): number[] {
@@ -542,24 +605,17 @@ export class AppComponent {
   }
 
   learn(): void {
-    let observation = ndarray(this.getVisionAsInput());
-    let reward = this.reward;
-    let done = this.done;
-
-    let action = this.agent.step(observation, reward, done);
-
-    // if (this.gameNo % 32 == 0) {
-    let loss = this.agent.learn();
-    // console.log(' loss: ', loss);
-    // }
-
-    let predictedAction: Move = Move[Move[action]];
-
-    this.action = predictedAction;
-    this.makeMove();
-    // if (this.gameNo > 200){
-    this.redraw();
-    // }
+    // let observation = ndarray(this.getVisionAsInput());
+    // let reward = this.reward;
+    // let done = this.done;
+    // // if (this.gameNo % 32 == 0) {
+    // let loss = this.agent.learn();
+    // // console.log(' loss: ', loss);
+    // // }
+    // let predictedAction: Move = Move[Move[action]];
+    // this.action = predictedAction;
+    // this.makeMove();
+    // this.redraw();
   }
 
   redraw(): void {
@@ -586,7 +642,7 @@ export class AppComponent {
 
   initSnake(): void {
     this.snake = [];
-    this.snake.push({ x: 5, y: 5 }, { x: 6, y: 5 });
+    this.snake.push({ x: 4, y: 5 }, { x: 5, y: 5 }, { x: 6, y: 5 });
   }
 
   dropFoodOnAvailableSquare(): void {
@@ -671,16 +727,16 @@ export class AppComponent {
       //     ? 0
       //     : (this.reward = -0.2);
 
-      // this.movesSinceLastEating++;
+      this.movesSinceLastEating++;
       // let maxIterations: number = 0.7 * this.snake.length + 10;
       // if (this.movesSinceLastEating >= maxIterations) {
       //   this.reward = -0.5 / this.snake.length;
       //   this.movesSinceLastEating = 0;
       // } else {
-        this.reward = this.calculateRewardByDistance(
-          lastSnakeCoord,
-          currentCoord
-        );
+      this.reward = this.calculateRewardByDistance(
+        lastSnakeCoord,
+        currentCoord
+      );
       // }
 
       this.currentDistanceToFood = newCurrentDistanceToFood;
@@ -783,4 +839,10 @@ export class DirectionInfo {
   public distanceToWall: number;
   public distanceToFood: number;
   public distanceToSnake: number;
+}
+export interface Memory {
+  observation: any;
+  reward: number;
+  action: Move;
+  done: boolean;
 }
