@@ -89,7 +89,7 @@ export class AppComponent {
       model: this.model,
       numActions: NUM_ACTIONS,
       finalEpsilon: 0.1,
-      epsilonDecaySteps: 10000,
+      epsilonDecaySteps: 100000,
       gamma: 0.9
     });
 
@@ -559,6 +559,9 @@ export class AppComponent {
     this.makeMove();
     // if (this.gameNo > 200){
     this.redraw();
+    // let maxIterations: number = 0.7 * this.snake.length + 10;
+
+
     // }
   }
 
@@ -671,17 +674,24 @@ export class AppComponent {
       //     ? 0
       //     : (this.reward = -0.2);
 
-      // this.movesSinceLastEating++;
-      // let maxIterations: number = 0.7 * this.snake.length + 10;
-      // if (this.movesSinceLastEating >= maxIterations) {
-      //   this.reward = -0.5 / this.snake.length;
-      //   this.movesSinceLastEating = 0;
-      // } else {
+      this.movesSinceLastEating++;
+      let maxIterations: number = 0.7 * this.snake.length + 10;
+      if (this.movesSinceLastEating >= maxIterations) {
+        this.reward = -0.5 / this.snake.length;
+        this.movesSinceLastEating = 0;
+        let i = 0;
+        while(i <maxIterations ){
+          // console.log(this.agent.transitions)
+          // console.log((this.agent.transitionCount - i) % this.agent.memorySize);
+          this.agent.transitions[(this.agent.transitionCount -1 - i) % this.agent.memorySize][2] = this.reward;
+          i++;
+        }
+      } else {
         this.reward = this.calculateRewardByDistance(
           lastSnakeCoord,
           currentCoord
         );
-      // }
+      }
 
       this.currentDistanceToFood = newCurrentDistanceToFood;
     }
