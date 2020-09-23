@@ -103,7 +103,11 @@ export class AppComponent {
       } else {
         const modelOutputs = this.model.forward(currentState);
         currentAction = this.indexOfMax(modelOutputs.data);
-        // console.log(modelOutputs);
+        // console.log(currentAction);
+      }
+      if (this.agent.transitions.some(x => x[2] < -1)){
+        console.log(this.agent.transitions.map(x => x[2]));
+
       }
 
       if (this.agent.previousState && typeof currentReward === "number") {
@@ -135,7 +139,7 @@ export class AppComponent {
     if (arr.length === 0) {
       return -1;
     }
-    let max = -1;
+    let max = -9999;
     let maxIndex = -1;
     let allPossibleMoves = this.getAllPossibleMoves();
     for (let i = 0; i < arr.length; i++) {
@@ -554,25 +558,28 @@ export class AppComponent {
         this.reward = -0.5 / this.snake.length;
         this.movesSinceLastEating = 0;
         let i = 0;
-        while(i <maxIterations ){
+        while(i <Math.max(3, maxIterations) ){
           // console.log(this.agent.transitions)
           // console.log((this.agent.transitionCount - i) % this.agent.memorySize);
-          this.agent.transitions[(this.agent.transitionCount -2 - i) % this.agent.memorySize][2] = this.reward;
+          this.agent.transitions[(this.agent.transitionCount -1 - i) % this.agent.memorySize][2] = this.reward;
           i++;
         }
       } 
 
-    // if (this.gameNo > 32) {
+    if (this.gameNo > 32) {
     let loss = this.agent.learn();
     // console.log(' loss: ', loss);
-    // }
+    }
 
     let predictedAction: Move = Move[Move[action]];
 
     this.action = predictedAction;
     this.makeMove();
     // if (this.gameNo > 200){
-    this.redraw();
+      setTimeout(() =>{
+        this.redraw();
+      })
+    // this.redraw();
     // let maxIterations: number = 0.7 * this.snake.length + 10;
 
 
@@ -671,7 +678,7 @@ export class AppComponent {
     ) {
       this.dropFoodOnAvailableSquare();
       this.score += 1;
-      this.reward = 0.9;
+      this.reward = 1.0;
       this.movesSinceLastEating = 0;
     } else {
       this.snake.shift();
