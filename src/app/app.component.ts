@@ -56,11 +56,12 @@ export class AppComponent {
           if (this.action != Move.UP) this.action = Move.DOWN;
           break;
         }
-        this.makeMove();
+        
+    }
+    this.makeMove();
         setTimeout(() => {
           this.redraw();
         });
-    }
   }
 
   ngOnInit() {
