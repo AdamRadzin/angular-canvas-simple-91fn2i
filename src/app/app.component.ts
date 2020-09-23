@@ -103,6 +103,7 @@ export class AppComponent {
       } else {
         const modelOutputs = this.model.forward(currentState);
         currentAction = this.indexOfMax(modelOutputs.data);
+        // console.log(modelOutputs);
       }
 
       if (this.agent.previousState && typeof currentReward === "number") {
@@ -548,7 +549,20 @@ export class AppComponent {
 
     let action = this.agent.step(observation, reward, done);
 
-    // if (this.gameNo % 32 == 0) {
+    let maxIterations: number = 0.7 * this.snake.length + 10;
+      if (this.movesSinceLastEating >= maxIterations) {
+        this.reward = -0.5 / this.snake.length;
+        this.movesSinceLastEating = 0;
+        let i = 0;
+        while(i <maxIterations ){
+          // console.log(this.agent.transitions)
+          // console.log((this.agent.transitionCount - i) % this.agent.memorySize);
+          this.agent.transitions[(this.agent.transitionCount -2 - i) % this.agent.memorySize][2] = this.reward;
+          i++;
+        }
+      } 
+
+    // if (this.gameNo > 32) {
     let loss = this.agent.learn();
     // console.log(' loss: ', loss);
     // }
@@ -675,23 +689,12 @@ export class AppComponent {
       //     : (this.reward = -0.2);
 
       this.movesSinceLastEating++;
-      let maxIterations: number = 0.7 * this.snake.length + 10;
-      if (this.movesSinceLastEating >= maxIterations) {
-        this.reward = -0.5 / this.snake.length;
-        this.movesSinceLastEating = 0;
-        let i = 0;
-        while(i <maxIterations ){
-          // console.log(this.agent.transitions)
-          // console.log((this.agent.transitionCount - i) % this.agent.memorySize);
-          this.agent.transitions[(this.agent.transitionCount -1 - i) % this.agent.memorySize][2] = this.reward;
-          i++;
-        }
-      } else {
+      
         this.reward = this.calculateRewardByDistance(
           lastSnakeCoord,
           currentCoord
         );
-      }
+      
 
       this.currentDistanceToFood = newCurrentDistanceToFood;
     }
@@ -710,11 +713,18 @@ export class AppComponent {
       this.foodSquare.x,
       this.foodSquare.y
     );
-    return (
+    let result: number = (
       Math.log(
         (this.snake.length + currDistance) / (this.snake.length + nextDistance)
       ) / Math.log(this.snake.length)
-    );
+    )
+    if (result < -1){
+      result = -1;
+    }
+    if (result > 1){
+      result = 1;
+    }
+    return result;
   }
 
   isMoveLosing(candidateCoord: Coord): boolean {
