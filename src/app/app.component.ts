@@ -89,25 +89,22 @@ export class AppComponent {
       model: this.model,
       numActions: NUM_ACTIONS,
       finalEpsilon: 0.1,
-      epsilonDecaySteps: 100000,
+      epsilonDecaySteps: 50000,
+      memorySize: 50000,
       gamma: 0.9
     });
+    this.agent.transitionsLowPriority = [];
+    this.agent.theta = 0.8;
 
     this.agent.step = (currentState, currentReward, done) => {
       let currentAction;
       if (Math.random() < this.agent.epsilon) {
-        // currentAction = Math.floor(Math.random() * this.agent.numActions)
         currentAction = this.getAllPossibleMoves()[
           Math.floor(Math.random() * (this.agent.numActions - 1))
         ];
       } else {
         const modelOutputs = this.model.forward(currentState);
         currentAction = this.indexOfMax(modelOutputs.data);
-        // console.log(currentAction);
-      }
-      if (this.agent.transitions.some(x => x[2] < -1)){
-        console.log(this.agent.transitions.map(x => x[2]));
-
       }
 
       if (this.agent.previousState && typeof currentReward === "number") {
@@ -118,9 +115,17 @@ export class AppComponent {
           currentState,
           done
         ];
-        this.agent.transitions[
-          this.agent.transitionCount % this.agent.memorySize
-        ] = transition;
+        if (currentReward >= 0.5) {
+          this.agent.transitions[
+            this.agent.transitions.length % (this.agent.memorySize / 2)
+          ] = transition;
+        } else {
+          this.agent.transitionsLowPriority[
+            this.agent.transitionsLowPriority.length %
+              (this.agent.memorySize / 2)
+          ] = transition;
+        }
+
         this.agent.transitionCount++;
       }
 
@@ -132,6 +137,87 @@ export class AppComponent {
         this.agent.epsilon - 1 / this.agent.epsilonDecaySteps
       );
       return currentAction;
+    };
+    this.agent.argmax = nd => {
+      return this.indexOfMax(nd.data);
+    };
+    this.agent.copy = target => {
+      return ndarray(target.data.slice(), target.shape);
+    };
+
+    this.agent.getRandomSubarray = (arr, size) => {
+      size = Math.min(size, arr.length);
+      let shuffled = arr.slice(0),
+        i = arr.length,
+        min = i - size,
+        temp,
+        index;
+      while (i-- > min) {
+        index = Math.floor((i + 1) * Math.random());
+        temp = shuffled[index];
+        shuffled[index] = shuffled[i];
+        shuffled[i] = temp;
+      }
+      return shuffled.slice(min);
+    };
+    this.agent.learn = () => {
+      if (
+        this.agent.transitions.length < this.agent.learnBatchSize ||
+        this.agent.transitionsLowPriority.length < this.agent.learnBatchSize
+      ) {
+        return;
+      }
+      let transitionsHighPriority = this.agent.getRandomSubarray(
+        this.agent.transitions,
+        this.agent.learnBatchSize
+      );
+      let transitionsLowPriority = this.agent.getRandomSubarray(
+        this.agent.transitionsLowPriority,
+        this.agent.learnBatchSize
+      );
+      // console.log("l", transitionsLowPriority);
+
+      let transitions = [];
+      for (let i = 0; i < this.agent.learnBatchSize; i++) {
+        if (i < this.agent.theta * this.agent.learnBatchSize) {
+          transitions.push(transitionsHighPriority[i]);
+        } else {
+          transitions.push(transitionsLowPriority[i]);
+        }
+      }
+      // console.log(transitionsHighPriority);
+
+      this.agent.theta = Math.max(0.5, this.agent.theta * 0.98);
+      let batchLoss = 0;
+      transitions.forEach((t, k) => {
+        // q(s, a) -> r + gamma * max_a' q(s', a')
+        const qPrime = this.agent.copy(this.model.forward(t[3]));
+        const q = this.model.forward(t[0]);
+        const target = this.agent.copy(q);
+        const reward = t[2];
+        if (t[4]) {
+          target.data[t[1]] = reward;
+        } else {
+          target.data[t[1]] =
+            reward + this.agent.gamma * qPrime.data[this.agent.argmax(qPrime)];
+        }
+
+        const [loss, gradInputs] = this.model.criterion(q, target);
+        this.agent.batchLoss += loss;
+        if (this.agent.maxError) {
+          gradInputs.data.forEach((v, k) => {
+            if (Math.abs(v) > this.agent.maxError) {
+              gradInputs.data[k] =
+                v > 0 ? this.agent.maxError : -this.agent.maxError;
+            }
+          });
+        }
+
+        this.model.backward(gradInputs);
+        this.model.update();
+      });
+
+      return transitions.length ? batchLoss / transitions.length : 0;
     };
   }
 
@@ -553,35 +639,34 @@ export class AppComponent {
 
     let action = this.agent.step(observation, reward, done);
 
-    let maxIterations: number = 0.7 * this.snake.length + 10;
-      if (this.movesSinceLastEating >= maxIterations) {
-        this.reward = -0.5 / this.snake.length;
-        this.movesSinceLastEating = 0;
-        let i = 0;
-        while(i <Math.max(3, maxIterations) ){
-          // console.log(this.agent.transitions)
-          // console.log((this.agent.transitionCount - i) % this.agent.memorySize);
-          this.agent.transitions[(this.agent.transitionCount -1 - i) % this.agent.memorySize][2] = this.reward;
-          i++;
-        }
-      } 
+    // let maxIterations: number = 0.7 * this.snake.length + 10;
+    // if (this.movesSinceLastEating >= maxIterations) {
+    //   this.reward = -0.5 / this.snake.length;
+    //   this.movesSinceLastEating = 0;
+    //   let i = 0;
+    //   while (i < maxIterations) {
+    //     this.agent.transitions[
+    //       (this.agent.transitionCount - 1 - i) % this.agent.memorySize
+    //     ][2] = this.reward;
+    //     i++;
+    //   }
+    // }
 
-    if (this.gameNo > 32) {
-    let loss = this.agent.learn();
-    // console.log(' loss: ', loss);
-    }
+    // if (this.gameNo > 32) {
+      let loss = this.agent.learn();
+      // console.log(' loss: ', loss);
+    // }
 
     let predictedAction: Move = Move[Move[action]];
 
     this.action = predictedAction;
     this.makeMove();
     // if (this.gameNo > 200){
-      setTimeout(() =>{
-        this.redraw();
-      })
+    setTimeout(() => {
+      this.redraw();
+    });
     // this.redraw();
     // let maxIterations: number = 0.7 * this.snake.length + 10;
-
 
     // }
   }
@@ -696,12 +781,11 @@ export class AppComponent {
       //     : (this.reward = -0.2);
 
       this.movesSinceLastEating++;
-      
-        this.reward = this.calculateRewardByDistance(
-          lastSnakeCoord,
-          currentCoord
-        );
-      
+
+      this.reward = this.calculateRewardByDistance(
+        lastSnakeCoord,
+        currentCoord
+      );
 
       this.currentDistanceToFood = newCurrentDistanceToFood;
     }
@@ -720,15 +804,14 @@ export class AppComponent {
       this.foodSquare.x,
       this.foodSquare.y
     );
-    let result: number = (
+    let result: number =
       Math.log(
         (this.snake.length + currDistance) / (this.snake.length + nextDistance)
-      ) / Math.log(this.snake.length)
-    )
-    if (result < -1){
+      ) / Math.log(this.snake.length);
+    if (result < -1) {
       result = -1;
     }
-    if (result > 1){
+    if (result > 1) {
       result = 1;
     }
     return result;
