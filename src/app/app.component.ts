@@ -34,6 +34,10 @@ export class AppComponent {
   private doneTraining: boolean = false;
   private currentDistanceToFood: number = 99999999;
   private movesSinceLastEating: 0;
+  private lastTransitions: LastTransitionsIndexes = {
+    lowPriority: [],
+    highPriority: []
+  };
   @HostListener("window:keydown", ["$event"])
   handleKeyboardEvent(event: KeyboardEvent) {
     let previousSnakeHead = this.snake[this.snake.length - 1];
@@ -84,13 +88,13 @@ export class AppComponent {
       .add(Linear(32, 32))
       .add(ReLU())
       .add(Linear(32, NUM_ACTIONS, false));
-
+ 
     this.agent = DQN({
       model: this.model,
       numActions: NUM_ACTIONS,
       finalEpsilon: 0.1,
-      epsilonDecaySteps: 50000,
-      memorySize: 50000,
+      epsilonDecaySteps: 10000,
+      memorySize: 10000,
       gamma: 0.9
     });
     this.agent.transitionsLowPriority = [];
@@ -116,17 +120,27 @@ export class AppComponent {
           done
         ];
         if (currentReward >= 0.5) {
+          this.lastTransitions.highPriority.push(
+            this.agent.transitions.length % (this.agent.memorySize / 2)
+          );
           this.agent.transitions[
             this.agent.transitions.length % (this.agent.memorySize / 2)
           ] = transition;
         } else {
+          this.lastTransitions.lowPriority.push(
+            this.agent.transitionsLowPriority.length %
+              (this.agent.memorySize / 2)
+          );
           this.agent.transitionsLowPriority[
             this.agent.transitionsLowPriority.length %
               (this.agent.memorySize / 2)
           ] = transition;
         }
-
         this.agent.transitionCount++;
+      }
+
+      if (this.reward == 1 || this.reward == -1) {
+        this.reward = 0;
       }
 
       this.agent.previousState = done ? null : currentState;
@@ -185,7 +199,7 @@ export class AppComponent {
           transitions.push(transitionsLowPriority[i]);
         }
       }
-      // console.log(transitionsHighPriority);
+      // console.log(transitionsLowPriority);
 
       this.agent.theta = Math.max(0.5, this.agent.theta * 0.98);
       let batchLoss = 0;
@@ -619,6 +633,7 @@ export class AppComponent {
   reset(): void {
     this.done = false;
     this.score = 0;
+    this.reward = 0;
     this.foodSquare = null;
     this.action = Move.DOWN;
     this.initSnake();
@@ -643,6 +658,14 @@ export class AppComponent {
     // if (this.movesSinceLastEating >= maxIterations) {
     //   this.reward = -0.5 / this.snake.length;
     //   this.movesSinceLastEating = 0;
+    //   this.lastTransitions.highPriority.forEach(index => {
+    //     this.agent.transitions[index] = this.reward;
+    //   });
+    //   this.lastTransitions.highPriority = [];
+    //   this.lastTransitions.lowPriority.forEach(index => {
+    //     this.agent.transitionsLowPriority[index] = this.reward;
+    //   });
+    //   this.lastTransitions.lowPriority = [];
     //   let i = 0;
     //   while (i < maxIterations) {
     //     this.agent.transitions[
@@ -653,8 +676,8 @@ export class AppComponent {
     // }
 
     // if (this.gameNo > 32) {
-      let loss = this.agent.learn();
-      // console.log(' loss: ', loss);
+    let loss = this.agent.learn();
+    // console.log(' loss: ', loss);
     // }
 
     let predictedAction: Move = Move[Move[action]];
@@ -782,11 +805,14 @@ export class AppComponent {
 
       this.movesSinceLastEating++;
 
-      this.reward = this.calculateRewardByDistance(
-        lastSnakeCoord,
-        currentCoord
+      this.reward = Math.max(
+        -1,
+        Math.min(
+          1,
+          this.reward +
+            this.calculateRewardByDistance(lastSnakeCoord, currentCoord)
+        )
       );
-
       this.currentDistanceToFood = newCurrentDistanceToFood;
     }
   }
@@ -893,4 +919,9 @@ export class DirectionInfo {
   public distanceToWall: number;
   public distanceToFood: number;
   public distanceToSnake: number;
+}
+
+export interface LastTransitionsIndexes {
+  highPriority: number[];
+  lowPriority: number[];
 }
