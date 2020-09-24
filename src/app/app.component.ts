@@ -141,6 +141,8 @@ export class AppComponent {
 
       if (this.reward == 1 || this.reward == -1) {
         this.reward = 0;
+        this.lastTransitions.highPriority = [];
+        this.lastTransitions.lowPriority = [];
       }
 
       this.agent.previousState = done ? null : currentState;
@@ -654,18 +656,18 @@ export class AppComponent {
 
     let action = this.agent.step(observation, reward, done);
 
-    // let maxIterations: number = 0.7 * this.snake.length + 10;
-    // if (this.movesSinceLastEating >= maxIterations) {
-    //   this.reward = -0.5 / this.snake.length;
-    //   this.movesSinceLastEating = 0;
-    //   this.lastTransitions.highPriority.forEach(index => {
-    //     this.agent.transitions[index] = this.reward;
-    //   });
-    //   this.lastTransitions.highPriority = [];
-    //   this.lastTransitions.lowPriority.forEach(index => {
-    //     this.agent.transitionsLowPriority[index] = this.reward;
-    //   });
-    //   this.lastTransitions.lowPriority = [];
+    let maxIterations: number = 0.7 * this.snake.length + 10;
+    if (this.movesSinceLastEating >= maxIterations) {
+      this.reward = -0.5 / this.snake.length;
+      this.movesSinceLastEating = 0;
+      this.lastTransitions.highPriority.forEach(index => {
+        this.agent.transitions[index][2] = this.reward;
+      });
+      this.lastTransitions.highPriority = [];
+      this.lastTransitions.lowPriority.forEach(index => {
+        this.agent.transitionsLowPriority[index][2] = this.reward;
+      });
+      this.lastTransitions.lowPriority = [];
     //   let i = 0;
     //   while (i < maxIterations) {
     //     this.agent.transitions[
@@ -673,7 +675,7 @@ export class AppComponent {
     //     ][2] = this.reward;
     //     i++;
     //   }
-    // }
+    }
 
     // if (this.gameNo > 32) {
     let loss = this.agent.learn();
