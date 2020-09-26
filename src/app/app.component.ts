@@ -114,7 +114,7 @@ export class AppComponent {
       let trainingGap: number = this.getTrainingGap();
       let withinTrainingGap: boolean = this.movesSinceLastEating > 0 && this.movesSinceLastEating < trainingGap;
 
-      if (this.agent.previousState && typeof currentReward === "number", !withinTrainingGap) {
+      if (this.agent.previousState && typeof currentReward === "number" && !withinTrainingGap) {
         const transition = [
           this.agent.previousState,
           this.agent.previousAction,
@@ -198,15 +198,26 @@ export class AppComponent {
       // console.log("l", transitionsLowPriority);
 
       let transitions = [];
+      let low = [];
+      let high = [];
       for (let i = 0; i < this.agent.learnBatchSize; i++) {
         if (i < this.agent.theta * this.agent.learnBatchSize) {
+          high.push(transitionsHighPriority[i])
           transitions.push(transitionsHighPriority[i]);
         } else {
+          low.push(transitionsLowPriority[i])
           transitions.push(transitionsLowPriority[i]);
         }
       }
-      console.log(transitionsLowPriority);
+       transitions.forEach(x => {
+         if(!x[0]) {
+                     console.log("err", x)
 
+         }
+         })
+
+      // console.log(low.length);
+// console.log(high);
       this.agent.theta = Math.max(0.5, this.agent.theta * 0.98);
       let batchLoss = 0;
       transitions.forEach((t, k) => {
@@ -660,26 +671,19 @@ export class AppComponent {
 
     let action = this.agent.step(observation, reward, done);
 
-    let maxIterations: number = 0.7 * this.snake.length + 10;
-    if (this.movesSinceLastEating >= maxIterations) {
-      this.reward = -0.5 / this.snake.length;
-      this.movesSinceLastEating = 0;
-      this.lastTransitions.highPriority.forEach(index => {
-        this.agent.transitions[index][2] = this.reward;
-      });
-      this.lastTransitions.highPriority = [];
-      this.lastTransitions.lowPriority.forEach(index => {
-        this.agent.transitionsLowPriority[index][2] = this.reward;
-      });
-      this.lastTransitions.lowPriority = [];
-    //   let i = 0;
-    //   while (i < maxIterations) {
-    //     this.agent.transitions[
-    //       (this.agent.transitionCount - 1 - i) % this.agent.memorySize
-    //     ][2] = this.reward;
-    //     i++;
-    //   }
-    }
+    // let maxIterations: number = 0.7 * this.snake.length + 10;
+    // if (this.movesSinceLastEating >= maxIterations) {
+    //   this.reward = -0.5 / this.snake.length;
+    //   this.movesSinceLastEating = 0;
+    //   this.lastTransitions.highPriority.forEach(index => {
+    //     this.agent.transitions[index][2] = this.reward;
+    //   });
+    //   this.lastTransitions.highPriority = [];
+    //   this.lastTransitions.lowPriority.forEach(index => {
+    //     this.agent.transitionsLowPriority[index][2] = this.reward;
+    //   });
+    //   this.lastTransitions.lowPriority = [];
+    // }
 
     // if (this.gameNo > 32) {
     let loss = this.agent.learn();
