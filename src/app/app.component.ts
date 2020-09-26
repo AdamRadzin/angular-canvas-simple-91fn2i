@@ -202,6 +202,7 @@ export class AppComponent {
         this.agent.learnBatchSize
       );
       // console.log("l", transitionsLowPriority);
+      // console.log('high',this.agent.transitions.length);
 
       let transitions = [];
       let low = [];
@@ -688,9 +689,13 @@ export class AppComponent {
         indexesToBeMovedToLowPriority.push(index);
         transitionsToBeMovedToLowPriority.push(this.agent.transitions[index]);
       });
-      indexesToBeMovedToLowPriority.forEach(index => {
+      // console.log(this.agent.transitions.length, 'before')
+      //       console.log(indexesToBeMovedToLowPriority.sort().reverse(), 'tobedelcount')
+
+      indexesToBeMovedToLowPriority.sort().reverse().forEach(index => {
         this.agent.transitions.splice(index, 1);
       });
+      // console.log(this.agent.transitions.length, 'after')
 
       this.lastTransitions.highPriority = [];
 
