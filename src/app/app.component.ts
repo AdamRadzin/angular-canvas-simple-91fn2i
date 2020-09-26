@@ -88,7 +88,7 @@ export class AppComponent {
       .add(Linear(32, 32))
       .add(ReLU())
       .add(Linear(32, NUM_ACTIONS, false));
- 
+
     this.agent = DQN({
       model: this.model,
       numActions: NUM_ACTIONS,
@@ -112,9 +112,15 @@ export class AppComponent {
       }
 
       let trainingGap: number = this.getTrainingGap();
-      let withinTrainingGap: boolean = this.movesSinceLastEating > 0 && this.movesSinceLastEating < trainingGap;
+      let withinTrainingGap: boolean =
+        this.movesSinceLastEating > 0 &&
+        this.movesSinceLastEating < trainingGap;
 
-      if (this.agent.previousState && typeof currentReward === "number" && !withinTrainingGap) {
+      if (
+        this.agent.previousState &&
+        typeof currentReward === "number" &&
+        !withinTrainingGap
+      ) {
         const transition = [
           this.agent.previousState,
           this.agent.previousAction,
@@ -202,22 +208,21 @@ export class AppComponent {
       let high = [];
       for (let i = 0; i < this.agent.learnBatchSize; i++) {
         if (i < this.agent.theta * this.agent.learnBatchSize) {
-          high.push(transitionsHighPriority[i])
+          high.push(transitionsHighPriority[i]);
           transitions.push(transitionsHighPriority[i]);
         } else {
-          low.push(transitionsLowPriority[i])
+          low.push(transitionsLowPriority[i]);
           transitions.push(transitionsLowPriority[i]);
         }
       }
-       transitions.forEach(x => {
-         if(!x[0]) {
-                     console.log("err", x)
-
-         }
-         })
+      transitions.forEach(x => {
+        if (!x[0]) {
+          console.log("err", x);
+        }
+      });
 
       // console.log(low.length);
-// console.log(high);
+      // console.log(high);
       this.agent.theta = Math.max(0.5, this.agent.theta * 0.98);
       let batchLoss = 0;
       transitions.forEach((t, k) => {
@@ -671,19 +676,32 @@ export class AppComponent {
 
     let action = this.agent.step(observation, reward, done);
 
-    // let maxIterations: number = 0.7 * this.snake.length + 10;
-    // if (this.movesSinceLastEating >= maxIterations) {
-    //   this.reward = -0.5 / this.snake.length;
-    //   this.movesSinceLastEating = 0;
-    //   this.lastTransitions.highPriority.forEach(index => {
-    //     this.agent.transitions[index][2] = this.reward;
-    //   });
-    //   this.lastTransitions.highPriority = [];
-    //   this.lastTransitions.lowPriority.forEach(index => {
-    //     this.agent.transitionsLowPriority[index][2] = this.reward;
-    //   });
-    //   this.lastTransitions.lowPriority = [];
-    // }
+    let maxIterations: number = 0.7 * this.snake.length + 10;
+    if (this.movesSinceLastEating >= maxIterations) {
+      this.reward = -0.5 / this.snake.length;
+      this.movesSinceLastEating = 0;
+      let indexesToBeMovedToLowPriority = [];
+      let transitionsToBeMovedToLowPriority = [];
+
+      this.lastTransitions.highPriority.forEach(index => {
+        this.agent.transitions[index][2] = this.reward;
+        indexesToBeMovedToLowPriority.push(index);
+        transitionsToBeMovedToLowPriority.push(this.agent.transitions[index]);
+      });
+      indexesToBeMovedToLowPriority.forEach(index => {
+        this.agent.transitions.splice(index, 1);
+      });
+
+      this.lastTransitions.highPriority = [];
+
+      this.lastTransitions.lowPriority.forEach(index => {
+        this.agent.transitionsLowPriority[index][2] = this.reward;
+      });
+      this.agent.transitionsLowPriority.concat(
+        transitionsToBeMovedToLowPriority
+      );
+      this.lastTransitions.lowPriority = [];
+    }
 
     // if (this.gameNo > 32) {
     let loss = this.agent.learn();
@@ -823,8 +841,14 @@ export class AppComponent {
             this.calculateRewardByDistance(lastSnakeCoord, currentCoord)
         )
       );
-      this.currentDistanceToFood = newCurrentDistanceToFood;
+      // console.log("der", this.slope(this.calculateRewardByDistance(lastSnakeCoord, currentCoord), this.snake.length, null));
+      // this.currentDistanceToFood = newCurrentDistanceToFood;
     }
+  }
+
+  slope(f, x, dx) {
+    dx = dx || 0.0000001;
+    return (f(x + dx) - f(x)) / dx;
   }
 
   calculateRewardByDistance(curr: Coord, next: Coord): number {
