@@ -111,7 +111,10 @@ export class AppComponent {
         currentAction = this.indexOfMax(modelOutputs.data);
       }
 
-      if (this.agent.previousState && typeof currentReward === "number") {
+      let trainingGap: number = this.getTrainingGap();
+      let withinTrainingGap: boolean = this.movesSinceLastEating > 0 && this.movesSinceLastEating < trainingGap;
+
+      if (this.agent.previousState && typeof currentReward === "number", !withinTrainingGap) {
         const transition = [
           this.agent.previousState,
           this.agent.previousAction,
@@ -138,7 +141,8 @@ export class AppComponent {
         }
         this.agent.transitionCount++;
       }
-
+      // console.log('low',this.agent.transitionsLowPriority.length);
+      // console.log('high',this.agent.transitions.length);
       if (this.reward == 1 || this.reward == -1) {
         this.reward = 0;
         this.lastTransitions.highPriority = [];
@@ -178,7 +182,7 @@ export class AppComponent {
     };
     this.agent.learn = () => {
       if (
-        this.agent.transitions.length < this.agent.learnBatchSize ||
+        this.agent.transitions.length < this.agent.learnBatchSize * 2 ||
         this.agent.transitionsLowPriority.length < this.agent.learnBatchSize
       ) {
         return;
@@ -201,7 +205,7 @@ export class AppComponent {
           transitions.push(transitionsLowPriority[i]);
         }
       }
-      // console.log(transitionsLowPriority);
+      console.log(transitionsLowPriority);
 
       this.agent.theta = Math.max(0.5, this.agent.theta * 0.98);
       let batchLoss = 0;
@@ -843,6 +847,17 @@ export class AppComponent {
       result = 1;
     }
     return result;
+  }
+
+  getTrainingGap(): number {
+    const k: number = 10;
+    const p: number = 0.4;
+    const q: number = 2;
+
+    if (this.snake.length <= k) {
+      return 0.5 * (this.WIDTH / this.gridScale);
+    }
+    return p * this.snake.length + 2;
   }
 
   isMoveLosing(candidateCoord: Coord): boolean {
