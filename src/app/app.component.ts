@@ -460,7 +460,7 @@ export class AppComponent {
       result.push(info.distanceToFood);
       result.push(info.distanceToSnake);
       result.push(info.distanceToWall);
-            console.log(info.distanceToWall);
+            // console.log(info.distanceToWall);
 
     });
 
@@ -587,8 +587,9 @@ export class AppComponent {
     let distanceToFood: number = INFI;
     let distanceToSnake: number = INFI;
     let distanceToWall: number = arrayOfDirection.length;
+    let currCoord: Coord = this.snake[this.snake.length - 1];
+
     if (wallCoord){
-      let currCoord: Coord = this.snake[this.snake.length - 1];
       distanceToWall = this.getDistance(currCoord.x, currCoord.y,wallCoord.x, wallCoord.y);
     }
     for (let i = 0; i < arrayOfDirection.length; i++) {
