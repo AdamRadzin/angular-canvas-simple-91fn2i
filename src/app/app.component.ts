@@ -216,7 +216,7 @@ export class AppComponent {
           transitions.push(transitionsLowPriority[i]);
         }
       }
-     
+
       this.agent.theta = Math.max(0.5, this.agent.theta * 0.98);
       let batchLoss = 0;
       transitions.forEach((t, k) => {
@@ -448,10 +448,19 @@ export class AppComponent {
 
     let result: number[] = [];
     [
-      this.getInputsFromDirection(leftTopDiagonal, true, {x: 0, y: 0}),
-      this.getInputsFromDirection(rightTopDiagonal, true, {x: this.WIDTH / this.gridScale, y: 0}),
-      this.getInputsFromDirection(leftBotDiagonal, true, {x: 0, y: this.HEIGHT / this.gridScale}),
-      this.getInputsFromDirection(rightBotDiagonal, true, {x: this.WIDTH / this.gridScale, y: this.HEIGHT / this.gridScale}),
+      this.getInputsFromDirection(leftTopDiagonal, true, { x: 0, y: 0 }),
+      this.getInputsFromDirection(rightTopDiagonal, true, {
+        x: this.WIDTH / this.gridScale,
+        y: 0
+      }),
+      this.getInputsFromDirection(leftBotDiagonal, true, {
+        x: 0,
+        y: this.HEIGHT / this.gridScale
+      }),
+      this.getInputsFromDirection(rightBotDiagonal, true, {
+        x: this.WIDTH / this.gridScale,
+        y: this.HEIGHT / this.gridScale
+      }),
       this.getInputsFromDirection(rightDirection, false),
       this.getInputsFromDirection(leftDirection, false),
       this.getInputsFromDirection(topDirection, false),
@@ -460,8 +469,7 @@ export class AppComponent {
       result.push(info.distanceToFood);
       result.push(info.distanceToSnake);
       result.push(info.distanceToWall);
-            // console.log(info.distanceToWall);
-
+      // console.log(info.distanceToWall);
     });
 
     result = result.concat(this.getLastACtionAsInput());
@@ -584,22 +592,29 @@ export class AppComponent {
     wallCoord?: Coord
   ): DirectionInfo {
     const INFI: number = 9999;
-    let distanceToFood: number = INFI;
     let distanceToSnake: number = INFI;
     let distanceToWall: number = arrayOfDirection.length;
     let currCoord: Coord = this.snake[this.snake.length - 1];
-
-    if (wallCoord){
-      distanceToWall = this.getDistance(currCoord.x, currCoord.y,wallCoord.x, wallCoord.y);
+    let distanceToFood: number = arrayOfDirection.some(
+      coord => coord.x == this.foodSquare.x && coord.y == this.foodSquare.y
+    )
+      ? this.getDistance(
+          currCoord.x,
+          currCoord.y,
+          this.foodSquare.x,
+          this.foodSquare.y
+        )
+      : INFI;
+    if (wallCoord) {
+      distanceToWall = this.getDistance(
+        currCoord.x,
+        currCoord.y,
+        wallCoord.x,
+        wallCoord.y
+      );
     }
     for (let i = 0; i < arrayOfDirection.length; i++) {
       let candidate: Coord = arrayOfDirection[i];
-      if (
-        candidate.x == this.foodSquare.x &&
-        this.foodSquare.y == candidate.y
-      ) {
-        distanceToFood = i + 1;
-      }
       if (
         this.snake.some(
           coord => candidate.x == coord.x && coord.y == candidate.y
@@ -608,14 +623,17 @@ export class AppComponent {
         distanceToSnake = i + 1;
       }
     }
-    let maxDiagonalDistance: number = wallCoord == null ? null :Math.floor(
-      this.getDistance(
-        0,
-        0,
-        this.WIDTH / this.gridScale,
-        this.HEIGHT / this.gridScale
-      )
-    );
+    let maxDiagonalDistance: number =
+      wallCoord == null
+        ? null
+        : Math.floor(
+            this.getDistance(
+              0,
+              0,
+              this.WIDTH / this.gridScale,
+              this.HEIGHT / this.gridScale
+            )
+          );
 
     let maxVerticalDistance: number = this.WIDTH / this.gridScale;
 
@@ -650,8 +668,8 @@ export class AppComponent {
 
   sortByDistanceComaprator(current: Coord): (c1, c2) => number {
     return (c1, c2) =>
-      this.getDistance(c1.x, current.x, c1.y, current.y) -
-      this.getDistance(c2.x, current.x, c2.y, current.y);
+      this.getDistance(c1.x, c1.y, current.x, current.y) -
+      this.getDistance(c2.x, c2.y, current.x, current.y);
   }
 
   reset(): void {
@@ -693,9 +711,12 @@ export class AppComponent {
       // console.log(this.agent.transitions.length, 'before')
       //       console.log(indexesToBeMovedToLowPriority.sort().reverse(), 'tobedelcount')
 
-      indexesToBeMovedToLowPriority.sort().reverse().forEach(index => {
-        this.agent.transitions.splice(index, 1);
-      });
+      indexesToBeMovedToLowPriority
+        .sort()
+        .reverse()
+        .forEach(index => {
+          this.agent.transitions.splice(index, 1);
+        });
       // console.log(this.agent.transitions.length, 'after')
 
       this.lastTransitions.highPriority = [];
@@ -848,18 +869,23 @@ export class AppComponent {
       //       this.calculateRewardByDistance(lastSnakeCoord, currentCoord)
       //   )
       // );
-      
+
       // console.log(this.calculateRewardByDistance(lastSnakeCoord, currentCoord))
     }
   }
 
-  calculateFitness(): number{
-    if (this.score < 10){
-      return Math.floor(this.movesSinceLastEating * this.movesSinceLastEating) * Math.pow(this.score, 2);
+  calculateFitness(): number {
+    if (this.score < 10) {
+      return (
+        Math.floor(this.movesSinceLastEating * this.movesSinceLastEating) *
+        Math.pow(this.score, 2)
+      );
     }
-    let fitness = Math.floor(this.movesSinceLastEating * this.movesSinceLastEating);
-        fitness *= Math.pow(10,2);
-        fitness *= (this.score-9);
+    let fitness = Math.floor(
+      this.movesSinceLastEating * this.movesSinceLastEating
+    );
+    fitness *= Math.pow(10, 2);
+    fitness *= this.score - 9;
   }
 
   slope(f, x, dx) {
