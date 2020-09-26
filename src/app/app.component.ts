@@ -831,24 +831,33 @@ export class AppComponent {
       );
       // this.reward =
       //   newCurrentDistanceToFood < this.currentDistanceToFood
-      //     ? 0.1
+      //     ? 0.5
       //     : newCurrentDistanceToFood == this.currentDistanceToFood
       //     ? 0
-      //     : (this.reward = -0.2);
+      //     : (this.reward = -0.5);
 
       this.movesSinceLastEating++;
 
-      this.reward = Math.max(
-        -1,
-        Math.min(
-          1,
-          this.reward +
-            this.calculateRewardByDistance(lastSnakeCoord, currentCoord)
-        )
-      );
-      // console.log("der", this.slope(this.calculateRewardByDistance(lastSnakeCoord, currentCoord), this.snake.length, null));
-      // this.currentDistanceToFood = newCurrentDistanceToFood;
+      // this.reward = Math.max(
+      //   -1,
+      //   Math.min(
+      //     1,
+      //     this.reward +
+      //       this.calculateRewardByDistance(lastSnakeCoord, currentCoord)
+      //   )
+      // );
+      // console.log(this.calculateRewardByDistance(lastSnakeCoord, currentCoord), ';rew')
+      console.log(this.calculateFitness())
     }
+  }
+
+  calculateFitness(): number{
+    if (this.score < 10){
+      return Math.floor(this.movesSinceLastEating * this.movesSinceLastEating) * Math.pow(this.score, 2);
+    }
+    let fitness = Math.floor(this.movesSinceLastEating * this.movesSinceLastEating);
+        fitness *= Math.pow(10,2);
+        fitness *= (this.score-9);
   }
 
   slope(f, x, dx) {
