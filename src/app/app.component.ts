@@ -216,14 +216,7 @@ export class AppComponent {
           transitions.push(transitionsLowPriority[i]);
         }
       }
-      transitions.forEach(x => {
-        if (!x[0]) {
-          console.log("err", x);
-        }
-      });
-
-      // console.log(low.length);
-      // console.log(high);
+     
       this.agent.theta = Math.max(0.5, this.agent.theta * 0.98);
       let batchLoss = 0;
       transitions.forEach((t, k) => {
@@ -455,10 +448,10 @@ export class AppComponent {
 
     let result: number[] = [];
     [
-      this.getInputsFromDirection(leftTopDiagonal, true),
-      this.getInputsFromDirection(rightTopDiagonal, true),
-      this.getInputsFromDirection(leftBotDiagonal, true),
-      this.getInputsFromDirection(rightBotDiagonal, true),
+      this.getInputsFromDirection(leftTopDiagonal, true, {x: 0, y: 0}),
+      this.getInputsFromDirection(rightTopDiagonal, true, {x: this.WIDTH / this.gridScale, y: 0}),
+      this.getInputsFromDirection(leftBotDiagonal, true, {x: 0, y: this.HEIGHT / this.gridScale}),
+      this.getInputsFromDirection(rightBotDiagonal, true, {x: this.WIDTH / this.gridScale, y: this.HEIGHT / this.gridScale}),
       this.getInputsFromDirection(rightDirection, false),
       this.getInputsFromDirection(leftDirection, false),
       this.getInputsFromDirection(topDirection, false),
@@ -467,6 +460,8 @@ export class AppComponent {
       result.push(info.distanceToFood);
       result.push(info.distanceToSnake);
       result.push(info.distanceToWall);
+            console.log(info.distanceToWall);
+
     });
 
     result = result.concat(this.getLastACtionAsInput());
@@ -585,12 +580,17 @@ export class AppComponent {
 
   getInputsFromDirection(
     arrayOfDirection: Coord[],
-    isDiagonal: boolean
+    isDiagonal: boolean,
+    wallCoord?: Coord
   ): DirectionInfo {
     const INFI: number = 9999;
     let distanceToFood: number = INFI;
     let distanceToSnake: number = INFI;
     let distanceToWall: number = arrayOfDirection.length;
+    if (wallCoord){
+      let currCoord: Coord = this.snake[this.snake.length - 1];
+      distanceToWall = this.getDistance(currCoord.x, currCoord.y,wallCoord.x, wallCoord.y);
+    }
     for (let i = 0; i < arrayOfDirection.length; i++) {
       let candidate: Coord = arrayOfDirection[i];
       if (
@@ -607,7 +607,7 @@ export class AppComponent {
         distanceToSnake = i + 1;
       }
     }
-    let maxDiagonalDistance: number = Math.floor(
+    let maxDiagonalDistance: number = wallCoord == null ? null :Math.floor(
       this.getDistance(
         0,
         0,
@@ -811,6 +811,7 @@ export class AppComponent {
       this.movesSinceLastEating = 0;
       return;
     }
+    // console.log(this.calculateRewardByDistance(lastSnakeCoord, currentCoord), ';rew')
     this.snake.push(currentCoord);
 
     if (
@@ -829,12 +830,12 @@ export class AppComponent {
         this.foodSquare.x,
         this.foodSquare.y
       );
-      // this.reward =
-      //   newCurrentDistanceToFood < this.currentDistanceToFood
-      //     ? 0.5
-      //     : newCurrentDistanceToFood == this.currentDistanceToFood
-      //     ? 0
-      //     : (this.reward = -0.5);
+      this.reward =
+        newCurrentDistanceToFood < this.currentDistanceToFood
+          ? 0.5
+          : newCurrentDistanceToFood == this.currentDistanceToFood
+          ? 0
+          : (this.reward = -0.5);
 
       this.movesSinceLastEating++;
 
@@ -842,12 +843,12 @@ export class AppComponent {
       //   -1,
       //   Math.min(
       //     1,
-      //     this.reward +
+      //     // this.reward +
       //       this.calculateRewardByDistance(lastSnakeCoord, currentCoord)
       //   )
       // );
-      // console.log(this.calculateRewardByDistance(lastSnakeCoord, currentCoord), ';rew')
-      console.log(this.calculateFitness())
+      
+      // console.log(this.calculateRewardByDistance(lastSnakeCoord, currentCoord))
     }
   }
 
@@ -955,10 +956,13 @@ export class AppComponent {
   }
 
   getDistance(xA, yA, xB, yB): number {
-    let xDiff = xA - xB;
-    let yDiff = yA - yB;
+    //euklides
+    // let xDiff = xA - xB;
+    // let yDiff = yA - yB;
+    // return Math.sqrt(xDiff * xDiff + yDiff * yDiff);
 
-    return Math.sqrt(xDiff * xDiff + yDiff * yDiff);
+    //taxicab
+    return Math.abs(xA - xB) + Math.abs(yA - yB);
   }
 }
 
