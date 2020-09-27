@@ -51,17 +51,15 @@ export class AppComponent {
         if (this.action != Move.DOWN) this.action = Move.UP;
         break;
       }
-      case 40:
-        {
-          if (this.action != Move.UP) this.action = Move.DOWN;
-          break;
-        }
-        
+      case 40: {
+        if (this.action != Move.UP) this.action = Move.DOWN;
+        break;
+      }
     }
     this.makeMove();
-        setTimeout(() => {
-          this.redraw();
-        });
+    setTimeout(() => {
+      this.redraw();
+    });
   }
 
   ngOnInit() {
@@ -89,7 +87,7 @@ export class AppComponent {
     this.agent = DQN({
       model: this.model,
       numActions: NUM_ACTIONS,
-      finalEpsilon: 0.1,
+      finalEpsilon: 0.0,
       epsilonDecaySteps: 10000,
       gamma: 0.9
     });
@@ -106,7 +104,12 @@ export class AppComponent {
         currentAction = this.indexOfMax(modelOutputs.data);
       }
 
-      if (this.agent.previousState && typeof currentReward === "number") {
+      let trainingGap: number = this.getTrainingGap();
+      let withinTrainingGap: boolean =
+        this.movesSinceLastEating > 0 &&
+        this.movesSinceLastEating < trainingGap;
+
+      if (this.agent.previousState && typeof currentReward === "number" && !withinTrainingGap) {
         const transition = [
           this.agent.previousState,
           this.agent.previousAction,
@@ -129,6 +132,17 @@ export class AppComponent {
       );
       return currentAction;
     };
+  }
+
+  getTrainingGap(): number {
+    const k: number = 10;
+    const p: number = 0.4;
+    const q: number = 2;
+
+    if (this.snake.length <= k) {
+      return 0.5 * (this.WIDTH / this.gridScale);
+    }
+    return p * this.snake.length + 2;
   }
 
   indexOfMax(arr) {
@@ -310,28 +324,45 @@ export class AppComponent {
       })
       .sort(this.sortByDistanceComaprator(currentCoord));
 
-    let leftDirection: Coord[] = allCoords.filter(coord => {
-      return coord.y == currentCoord.y && coord.x < currentCoord.x;
-    });
+    let leftDirection: Coord[] = allCoords
+      .filter(coord => {
+        return coord.y == currentCoord.y && coord.x < currentCoord.x;
+      })
+      .sort(this.sortByDistanceComaprator(currentCoord));
 
-    let rightDirection: Coord[] = allCoords.filter(coord => {
-      return coord.y == currentCoord.y && coord.x > currentCoord.x;
-    });
+    let rightDirection: Coord[] = allCoords
+      .filter(coord => {
+        return coord.y == currentCoord.y && coord.x > currentCoord.x;
+      })
+      .sort(this.sortByDistanceComaprator(currentCoord));
 
-    let topDirection: Coord[] = allCoords.filter(coord => {
-      return coord.x == currentCoord.x && coord.y > currentCoord.y;
-    });
+    let topDirection: Coord[] = allCoords
+      .filter(coord => {
+        return coord.x == currentCoord.x && coord.y > currentCoord.y;
+      })
+      .sort(this.sortByDistanceComaprator(currentCoord));
 
-    let botDirection: Coord[] = allCoords.filter(coord => {
-      return coord.x == currentCoord.x && coord.y < currentCoord.y;
-    });
+    let botDirection: Coord[] = allCoords
+      .filter(coord => {
+        return coord.x == currentCoord.x && coord.y < currentCoord.y;
+      })
+      .sort(this.sortByDistanceComaprator(currentCoord));
 
     let result: number[] = [];
     [
-      this.getInputsFromDirection(leftTopDiagonal, true),
-      this.getInputsFromDirection(rightTopDiagonal, true),
-      this.getInputsFromDirection(leftBotDiagonal, true),
-      this.getInputsFromDirection(rightBotDiagonal, true),
+      this.getInputsFromDirection(leftTopDiagonal, true, { x: 0, y: 0 }),
+      this.getInputsFromDirection(rightTopDiagonal, true, {
+        x: this.WIDTH / this.gridScale,
+        y: 0
+      }),
+      this.getInputsFromDirection(leftBotDiagonal, true, {
+        x: 0,
+        y: this.HEIGHT / this.gridScale
+      }),
+      this.getInputsFromDirection(rightBotDiagonal, true, {
+        x: this.WIDTH / this.gridScale,
+        y: this.HEIGHT / this.gridScale
+      }),
       this.getInputsFromDirection(rightDirection, false),
       this.getInputsFromDirection(leftDirection, false),
       this.getInputsFromDirection(topDirection, false),
@@ -340,6 +371,7 @@ export class AppComponent {
       result.push(info.distanceToFood);
       result.push(info.distanceToSnake);
       result.push(info.distanceToWall);
+      // console.log(info.distanceToWall);
     });
 
     result = result.concat(this.getLastACtionAsInput());
@@ -458,36 +490,66 @@ export class AppComponent {
 
   getInputsFromDirection(
     arrayOfDirection: Coord[],
-    isDiagonal: boolean
+    isDiagonal: boolean,
+    wallCoord?: Coord
   ): DirectionInfo {
     const INFI: number = 9999;
-    let distanceToFood: number = INFI;
     let distanceToSnake: number = INFI;
     let distanceToWall: number = arrayOfDirection.length;
+    let currCoord: Coord = this.snake[this.snake.length - 1];
+    let distanceToFood: number = arrayOfDirection.some(
+      coord => coord.x == this.foodSquare.x && coord.y == this.foodSquare.y
+    )
+      ? this.getDistance(
+          currCoord.x,
+          currCoord.y,
+          this.foodSquare.x,
+          this.foodSquare.y
+        )
+      : INFI;
+    if (wallCoord) {
+      distanceToWall = this.getDistance(
+        currCoord.x,
+        currCoord.y,
+        wallCoord.x,
+        wallCoord.y
+      );
+    }
     for (let i = 0; i < arrayOfDirection.length; i++) {
       let candidate: Coord = arrayOfDirection[i];
-      if (
-        candidate.x == this.foodSquare.x &&
-        this.foodSquare.y == candidate.y
-      ) {
-        distanceToFood = i + 1;
-      }
-      if (
-        this.snake.some(
-          coord => candidate.x == coord.x && coord.y == candidate.y
-        )
-      ) {
-        distanceToSnake = i + 1;
+      let snakeCoord: Coord;
+
+      this.snake.forEach(coord => {
+        if (candidate.x == coord.x && coord.y == candidate.y) {
+          snakeCoord = coord;
+        }
+      });
+      distanceToSnake =
+        snakeCoord == null
+          ? INFI
+          : this.getDistance(
+              candidate.x,
+              candidate.y,
+              snakeCoord.x,
+              snakeCoord.y
+            );
+      if(snakeCoord != null){
+      break;
+
       }
     }
-    let maxDiagonalDistance: number = Math.floor(
-      this.getDistance(
-        0,
-        0,
-        this.WIDTH / this.gridScale,
-        this.HEIGHT / this.gridScale
-      )
-    );
+
+    let maxDiagonalDistance: number =
+      wallCoord == null
+        ? null
+        : Math.floor(
+            this.getDistance(
+              0,
+              0,
+              this.WIDTH / this.gridScale,
+              this.HEIGHT / this.gridScale
+            )
+          );
 
     let maxVerticalDistance: number = this.WIDTH / this.gridScale;
 
@@ -672,17 +734,26 @@ export class AppComponent {
       //     ? 0
       //     : (this.reward = -0.2);
 
-      // this.movesSinceLastEating++;
-      // let maxIterations: number = 0.7 * this.snake.length + 10;
-      // if (this.movesSinceLastEating >= maxIterations) {
-      //   this.reward = -0.5 / this.snake.length;
-      //   this.movesSinceLastEating = 0;
-      // } else {
-        this.reward = this.calculateRewardByDistance(
-          lastSnakeCoord,
-          currentCoord
-        );
-      // }
+      this.movesSinceLastEating++;
+
+      this.reward = this.calculateRewardByDistance(
+        lastSnakeCoord,
+        currentCoord
+      );
+
+      let maxIterations: number = 0.7 * this.snake.length + 10;
+
+      if (this.movesSinceLastEating >= maxIterations) {
+        this.reward -= Math.min(this.reward, -0.5 / this.snake.length);
+        let lastIndex: number = this.agent.transitions.length - 1;
+        let iterator: number = lastIndex;
+        while (iterator >= Math.max(0, lastIndex - maxIterations +1 )) {
+          this.agent.transitions[iterator][2] -= Math.min(this.agent.transitions[iterator][2], this.reward);
+          iterator--;
+
+        }
+        this.movesSinceLastEating = 0;
+      }
 
       this.currentDistanceToFood = newCurrentDistanceToFood;
     }
@@ -761,10 +832,12 @@ export class AppComponent {
   }
 
   getDistance(xA, yA, xB, yB): number {
-    let xDiff = xA - xB;
-    let yDiff = yA - yB;
+    // let xDiff = xA - xB;
+    // let yDiff = yA - yB;
 
-    return Math.sqrt(xDiff * xDiff + yDiff * yDiff);
+    // return Math.sqrt(xDiff * xDiff + yDiff * yDiff);
+    //taxicab
+    return Math.abs(xA - xB) + Math.abs(yA - yB);
   }
 }
 
