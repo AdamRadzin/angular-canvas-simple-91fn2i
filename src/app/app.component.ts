@@ -432,19 +432,19 @@ export class AppComponent {
 
     let leftDirection: Coord[] = allCoords.filter(coord => {
       return coord.y == currentCoord.y && coord.x < currentCoord.x;
-    });
+    }).sort(this.sortByDistanceComaprator(currentCoord));
 
     let rightDirection: Coord[] = allCoords.filter(coord => {
       return coord.y == currentCoord.y && coord.x > currentCoord.x;
-    });
+    }).sort(this.sortByDistanceComaprator(currentCoord));
 
     let topDirection: Coord[] = allCoords.filter(coord => {
       return coord.x == currentCoord.x && coord.y > currentCoord.y;
-    });
+    }).sort(this.sortByDistanceComaprator(currentCoord));
 
     let botDirection: Coord[] = allCoords.filter(coord => {
       return coord.x == currentCoord.x && coord.y < currentCoord.y;
-    });
+    }).sort(this.sortByDistanceComaprator(currentCoord));
 
     let result: number[] = [];
     [
@@ -615,14 +615,17 @@ export class AppComponent {
     }
     for (let i = 0; i < arrayOfDirection.length; i++) {
       let candidate: Coord = arrayOfDirection[i];
-      if (
-        this.snake.some(
-          coord => candidate.x == coord.x && coord.y == candidate.y
+      let snakeCoord: Coord;
+      
+        this.snake.forEach(
+          coord => {if (candidate.x == coord.x && coord.y == candidate.y){
+            snakeCoord = coord;
+          }}
         )
-      ) {
-        distanceToSnake = i + 1;
+        distanceToSnake = snakeCoord == null ? INFI : this.getDistance(candidate.x, candidate.y, snakeCoord.x, snakeCoord.y);
+        break;
       }
-    }
+    
     let maxDiagonalDistance: number =
       wallCoord == null
         ? null
