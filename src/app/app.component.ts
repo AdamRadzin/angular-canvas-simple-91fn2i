@@ -24,6 +24,7 @@ export class AppComponent {
   private WIDTH: number = 100;
   private done: boolean = true;
   private score: number;
+  private scoreSum: number = 0;
   private highScore: number = 0;
   private gameNo: number;
   private intervalSub: Subscription;
@@ -277,16 +278,18 @@ export class AppComponent {
   startLearning(period: number): void {
     this.highScore = 0;
     this.gameNo = 0;
+    this.scoreSum = 0;
     this.stopLearning();
     this.action = this.getAllPossibleMoves()[this.getRandomInt(0, 3)];
     this.makeMove();
     this.redraw();
     this.intervalSub = interval(period).subscribe(i => {
       if (this.action == null) {
-        return;
+        return; 
       }
       if (this.done) {
         this.gameNo++;
+        this.scoreSum += this.score
         if (this.score > this.highScore) {
           this.highScore = this.score;
           console.log(this.highScore);

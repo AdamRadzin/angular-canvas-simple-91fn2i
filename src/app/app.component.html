@@ -14,6 +14,7 @@
 <div>score: {{score}}</div>
 <div>highScore: {{highScore}}</div>
 <div>gameNo: {{gameNo}}</div>
+<div>avg: {{gameNo > 0 ?(scoreSum / gameNo).toFixed(2): 0}}</div>
 <button (click)="stopLearning()">finish learning</button>
 <button (click)="startLearning(1000)">train slow</button>
 <button (click)="startLearning(100)">train medium</button>
