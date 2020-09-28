@@ -89,7 +89,8 @@ export class AppComponent {
       numActions: NUM_ACTIONS,
       finalEpsilon: 0.0,
       epsilonDecaySteps: 10000,
-      gamma: 0.9
+      epsilon: 0.5,
+      gamma: 0.93
     });
 
     this.agent.step = (currentState, currentReward, done) => {
@@ -101,7 +102,7 @@ export class AppComponent {
         ];
       } else {
         const modelOutputs = this.model.forward(currentState);
-        currentAction = this.indexOfMax(modelOutputs.data);
+        currentAction = this.gameNo < 1000 && this.agent.epsilon <=0.01 ? this.randomizer(this.softmax(modelOutputs.data)) : this.indexOfMax(modelOutputs.data);
       }
 
       let trainingGap: number = this.getTrainingGap();
@@ -134,6 +135,36 @@ export class AppComponent {
     };
   }
 
+  randomizer(values) {
+    let i, pickedValue,
+            randomNr = Math.random(),
+            threshold = 0;
+
+    for (i = 0; i < values.length; i++) {
+        if (values[i] === '*') {
+            continue;
+        }
+
+        threshold += values[i];
+        if (threshold > randomNr) {
+                pickedValue = i;
+                break;
+        }
+
+        if (!pickedValue) {
+            //nothing found based on probability value, so pick element marked with wildcard
+            pickedValue = values.filter((value) => value === '*');
+        }
+    }
+
+    return pickedValue;
+}
+
+ softmax(arr) {
+    return arr.map(function(value,index) { 
+      return Math.exp(value) / arr.map( function(y /*value*/){ return Math.exp(y) } ).reduce( function(a,b){ return a+b })
+    })
+}
   getTrainingGap(): number {
     const k: number = 10;
     const p: number = 0.4;
@@ -717,7 +748,7 @@ export class AppComponent {
     ) {
       this.dropFoodOnAvailableSquare();
       this.score += 1;
-      this.reward = 0.9;
+      this.reward = 1.0;
       this.movesSinceLastEating = 0;
     } else {
       this.snake.shift();
@@ -736,12 +767,13 @@ export class AppComponent {
 
       this.movesSinceLastEating++;
 
-      this.reward = this.calculateRewardByDistance(
-        lastSnakeCoord,
-        currentCoord
-      );
+      // this.reward = this.calculateRewardByDistance(
+      //   lastSnakeCoord,
+      //   currentCoord
+      // );
+      this.reward = 0;
 
-      let maxIterations: number = 0.7 * this.snake.length + 10;
+      let maxIterations: number = 19 * this.snake.length + 10;
 
       if (this.movesSinceLastEating >= maxIterations) {
         this.reward -= Math.min(this.reward, -0.5 / this.snake.length);
