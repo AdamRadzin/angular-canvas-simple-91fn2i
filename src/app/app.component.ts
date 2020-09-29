@@ -33,7 +33,7 @@ export class AppComponent {
   private agent: any;
   private doneTraining: boolean = false;
   private currentDistanceToFood: number = 99999999;
-  private movesSinceLastEating: 0;
+  private movesSinceLastEating: number;
   @HostListener("window:keydown", ["$event"])
   handleKeyboardEvent(event: KeyboardEvent) {
     let previousSnakeHead = this.snake[this.snake.length - 1];
@@ -88,7 +88,7 @@ export class AppComponent {
       model: this.model,
       numActions: NUM_ACTIONS,
       finalEpsilon: 0.0,
-      epsilonDecaySteps: 10000,
+      epsilonDecaySteps: 70000,
       epsilon: 0.5,
       gamma: 0.93
     });
@@ -102,15 +102,34 @@ export class AppComponent {
         ];
       } else {
         const modelOutputs = this.model.forward(currentState);
-        currentAction = this.gameNo < 1000 && this.agent.epsilon <=0.01 ? this.randomizer(this.softmax(modelOutputs.data)) : this.indexOfMax(modelOutputs.data);
+
+        // console.log('org',modelOutputs.data)
+        let copyOfQVals = this.copy(modelOutputs);
+        let maxQ = copyOfQVals.data[this.indexOfMax(copyOfQVals.data)];
+
+        for (let i = 0; i < copyOfQVals.data.length; i++) {
+          copyOfQVals.data[i] = copyOfQVals.data[i] / maxQ;
+        }
+        let boltzman = this.randomizer(this.softmax(copyOfQVals, 1).data);
+        currentAction =
+          this.gameNo > 300 && this.gameNo < 1000 && this.agent.epsilon <= 0.01
+            ? boltzman
+            : this.indexOfMax(modelOutputs.data);
+        // console.log(this.softmax(copyOfQVals, 1.5).data)
       }
 
       let trainingGap: number = this.getTrainingGap();
       let withinTrainingGap: boolean =
         this.movesSinceLastEating > 0 &&
         this.movesSinceLastEating < trainingGap;
-
-      if (this.agent.previousState && typeof currentReward === "number" && !withinTrainingGap) {
+      // if (withinTrainingGap){
+      //   this.movesSinceLastEating = Math.max(0, this.movesSinceLastEating -1);;
+      // }
+      if (
+        this.agent.previousState &&
+        typeof currentReward === "number" &&
+        !withinTrainingGap
+      ) {
         const transition = [
           this.agent.previousState,
           this.agent.previousAction,
@@ -135,36 +154,45 @@ export class AppComponent {
     };
   }
 
+  copy(target) {
+    return ndarray(target.data.slice(), target.shape);
+  }
+
   randomizer(values) {
-    let i, pickedValue,
-            randomNr = Math.random(),
-            threshold = 0;
+    let i,
+      pickedValue,
+      randomNr = Math.random(),
+      threshold = 0;
 
     for (i = 0; i < values.length; i++) {
-        if (values[i] === '*') {
-            continue;
-        }
+      if (values[i] === "*") {
+        continue;
+      }
 
-        threshold += values[i];
-        if (threshold > randomNr) {
-                pickedValue = i;
-                break;
-        }
+      threshold += values[i];
+      if (threshold > randomNr) {
+        pickedValue = i;
+        break;
+      }
 
-        if (!pickedValue) {
-            //nothing found based on probability value, so pick element marked with wildcard
-            pickedValue = values.filter((value) => value === '*');
-        }
+      if (!pickedValue) {
+        //nothing found based on probability value, so pick element marked with wildcard
+        pickedValue = values.filter(value => value === "*");
+      }
     }
 
     return pickedValue;
-}
+  }
 
- softmax(arr) {
-    return arr.map(function(value,index) { 
-      return Math.exp(value) / arr.map( function(y /*value*/){ return Math.exp(y) } ).reduce( function(a,b){ return a+b })
-    })
-}
+  softmax(nd, temperature) {
+    let expSum = 0;
+    nd.data.forEach(n => {
+      expSum += Math.exp(n/temperature);
+    });
+
+    let softmaxedValues = nd.data.map(n => Math.exp(n/temperature) / expSum);
+    return ndarray(softmaxedValues);
+  }
   getTrainingGap(): number {
     const k: number = 10;
     const p: number = 0.4;
