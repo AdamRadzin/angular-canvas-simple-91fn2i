@@ -72,23 +72,23 @@ export class AppComponent {
       optimizer: SGD(0.01),
       loss: MSE()
     });
-    const STATE_SIZE = 32;
+    const STATE_SIZE = 36 + 40;
     const NUM_ACTIONS = 4;
-
+    //kocur
     this.model
-      .add(Linear(STATE_SIZE, 32, false))
+      .add(Linear(STATE_SIZE, STATE_SIZE, false))
       .add(ReLU())
-      .add(Linear(32, 32))
+      .add(Linear(STATE_SIZE, STATE_SIZE))
       .add(ReLU())
-      .add(Linear(32, 32))
+      .add(Linear(STATE_SIZE, STATE_SIZE))
       .add(ReLU())
-      .add(Linear(32, NUM_ACTIONS, false));
+      .add(Linear(STATE_SIZE, NUM_ACTIONS, false));
 
     this.agent = DQN({
       model: this.model,
       numActions: NUM_ACTIONS,
-      finalEpsilon: 0.0,
-      epsilonDecaySteps: 70000,
+      finalEpsilon: 0,
+      epsilonDecaySteps: 10000,
       epsilon: 0.5,
       gamma: 0.93
     });
@@ -187,10 +187,10 @@ export class AppComponent {
   softmax(nd, temperature) {
     let expSum = 0;
     nd.data.forEach(n => {
-      expSum += Math.exp(n/temperature);
+      expSum += Math.exp(n / temperature);
     });
 
-    let softmaxedValues = nd.data.map(n => Math.exp(n/temperature) / expSum);
+    let softmaxedValues = nd.data.map(n => Math.exp(n / temperature) / expSum);
     return ndarray(softmaxedValues);
   }
   getTrainingGap(): number {
@@ -435,7 +435,62 @@ export class AppComponent {
 
     result = result.concat(this.getLastACtionAsInput());
     result = result.concat(this.getTailDirection());
+    result = result.concat(this.getLosingMovesAsInput());
+    result = result.concat(this.getBorderAsInput());
 
+    return result;
+  }
+
+  getBorderAsInput(): number[]{
+    let result: number[] = []
+    let maxX: number = this.WIDTH / this.gridScale;
+    let maxY: number = this.HEIGHT / this.gridScale;
+    for (let i: number = 0; i < maxX; i++){
+      if (this.snake.some(snakeCoord => snakeCoord.x == i && snakeCoord.y == 0)){
+        result.push(1)
+      }else{
+        result.push(0);
+      }
+      if (this.snake.some(snakeCoord => snakeCoord.x == i && snakeCoord.y == maxY)){
+        result.push(1)
+      }else{
+        result.push(0);
+      }
+    }
+    for (let i: number = 0; i < maxY; i++){
+      if (this.snake.some(snakeCoord => snakeCoord.y == i && snakeCoord.x == 0)){
+        result.push(1)
+      }else{
+        result.push(0);
+      }
+      if (this.snake.some(snakeCoord => snakeCoord.y == i && snakeCoord.x == maxX)){
+        result.push(1)
+      }else{
+        result.push(0);
+      }
+    }
+    return result;
+  }
+
+  getLosingMovesAsInput(): number[] {
+    let current: Coord = this.snake[this.snake.length - 1];
+    let result = [0, 0, 0, 0];
+    let left: Coord = { x: current.x - 1, y: current.y };
+    let right: Coord = { x: current.x + 1, y: current.y };
+    let up: Coord = { x: current.x, y: current.y + 1 };
+    let down: Coord = { x: current.x, y: current.y - 1 };
+    if (this.isMoveLosing(left)) {
+      result[0] = 1;
+    }
+    if (this.isMoveLosing(right)) {
+      result[1] = 1;
+    }
+    if (this.isMoveLosing(up)) {
+      result[2] = 1;
+    }
+    if (this.isMoveLosing(down)) {
+      result[3] = 1;
+    }
     return result;
   }
 
@@ -592,9 +647,8 @@ export class AppComponent {
               snakeCoord.x,
               snakeCoord.y
             );
-      if(snakeCoord != null){
-      break;
-
+      if (snakeCoord != null) {
+        break;
       }
     }
 
@@ -807,10 +861,12 @@ export class AppComponent {
         this.reward -= Math.min(this.reward, -0.5 / this.snake.length);
         let lastIndex: number = this.agent.transitions.length - 1;
         let iterator: number = lastIndex;
-        while (iterator >= Math.max(0, lastIndex - maxIterations +1 )) {
-          this.agent.transitions[iterator][2] -= Math.min(this.agent.transitions[iterator][2], this.reward);
+        while (iterator >= Math.max(0, lastIndex - maxIterations + 1)) {
+          this.agent.transitions[iterator][2] -= Math.min(
+            this.agent.transitions[iterator][2],
+            this.reward
+          );
           iterator--;
-
         }
         this.movesSinceLastEating = 0;
       }
