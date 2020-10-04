@@ -27,13 +27,14 @@ export class AppComponent {
   private highScore: number = 0;
   private gameNo: number;
   private intervalSub: Subscription;
-  private HUMAN_AGENT: boolean = true;
+  private HUMAN_AGENT: boolean = false;
   private reward: number;
   private model: any;
   private agent: any;
   private doneTraining: boolean = false;
   private currentDistanceToFood: number = 99999999;
   private movesSinceLastEating: number;
+  private movesAlive: number;
   @HostListener("window:keydown", ["$event"])
   handleKeyboardEvent(event: KeyboardEvent) {
     let previousSnakeHead = this.snake[this.snake.length - 1];
@@ -56,10 +57,6 @@ export class AppComponent {
         break;
       }
     }
-    this.makeMove();
-    setTimeout(() => {
-      this.redraw();
-    });
   }
 
   ngOnInit() {
@@ -72,7 +69,7 @@ export class AppComponent {
       optimizer: SGD(0.01),
       loss: MSE()
     });
-    const STATE_SIZE = 36 + 40;
+    const STATE_SIZE = 36;
     const NUM_ACTIONS = 4;
     //kocur
     this.model
@@ -87,7 +84,7 @@ export class AppComponent {
     this.agent = DQN({
       model: this.model,
       numActions: NUM_ACTIONS,
-      finalEpsilon: 0,
+      finalEpsilon: 0.0,
       epsilonDecaySteps: 10000,
       epsilon: 0.5,
       gamma: 0.93
@@ -95,11 +92,16 @@ export class AppComponent {
 
     this.agent.step = (currentState, currentReward, done) => {
       let currentAction;
-      if (Math.random() < this.agent.epsilon) {
+
+      if (Math.random() < this.agent.epsilon && this.gameNo < 300) {
         // currentAction = Math.floor(Math.random() * this.agent.numActions)
-        currentAction = this.getAllPossibleMoves()[
-          Math.floor(Math.random() * (this.agent.numActions - 1))
-        ];
+        if (this.getAllPossibleMoves().length < 3) {
+          currentAction = null;
+        } else {
+          currentAction = this.getAllPossibleMoves()[
+            Math.floor(Math.random() * (this.agent.numActions - 1))
+          ];
+        }
       } else {
         const modelOutputs = this.model.forward(currentState);
 
@@ -112,7 +114,7 @@ export class AppComponent {
         }
         let boltzman = this.randomizer(this.softmax(copyOfQVals, 1).data);
         currentAction =
-          this.gameNo > 300 && this.gameNo < 1000 && this.agent.epsilon <= 0.01
+          this.gameNo > 300 && this.gameNo < 1000 && this.agent.epsilon <= -0.01
             ? boltzman
             : this.indexOfMax(modelOutputs.data);
         // console.log(this.softmax(copyOfQVals, 1.5).data)
@@ -122,14 +124,8 @@ export class AppComponent {
       let withinTrainingGap: boolean =
         this.movesSinceLastEating > 0 &&
         this.movesSinceLastEating < trainingGap;
-      // if (withinTrainingGap){
-      //   this.movesSinceLastEating = Math.max(0, this.movesSinceLastEating -1);;
-      // }
-      if (
-        this.agent.previousState &&
-        typeof currentReward === "number" &&
-        !withinTrainingGap
-      ) {
+
+      if (this.agent.previousState && typeof currentReward === "number") {
         const transition = [
           this.agent.previousState,
           this.agent.previousAction,
@@ -152,6 +148,27 @@ export class AppComponent {
       );
       return currentAction;
     };
+  }
+
+  enableHumanAgent() {
+    if (this.HUMAN_AGENT) {
+      this.stopLearning();
+      this.intervalSub = interval(400).subscribe(i => {
+        if (this.action == null) {
+          return;
+        }
+        this.learn();
+        if (this.done) {
+          this.gameNo++;
+          if (this.score > this.highScore) {
+            this.highScore = this.score;
+            console.log(this.highScore);
+          }
+          this.reset();
+        }
+        i++;
+      });
+    }
   }
 
   copy(target) {
@@ -210,7 +227,7 @@ export class AppComponent {
     }
     let max = -1;
     let maxIndex = -1;
-    let allPossibleMoves = this.getAllPossibleMoves();
+    let allPossibleMoves = this.getAllPossibleMoves() || [];
     for (let i = 0; i < arr.length; i++) {
       let moveIsPossible = allPossibleMoves.indexOf(i) !== -1;
       if (arr[i] > max && moveIsPossible) {
@@ -231,13 +248,11 @@ export class AppComponent {
     this.highScore = 0;
     this.gameNo = 0;
     this.stopLearning();
-    this.action = this.getAllPossibleMoves()[this.getRandomInt(0, 3)];
-    this.makeMove();
-    this.redraw();
+    this.action = Move.RIGHT;
     this.intervalSub = interval(period).subscribe(i => {
-      if (this.action == null) {
-        return;
-      }
+      this.makeMove();
+      this.redraw();
+      this.learn();
       if (this.done) {
         this.gameNo++;
         if (this.score > this.highScore) {
@@ -246,7 +261,7 @@ export class AppComponent {
         }
         this.reset();
       }
-      this.learn();
+
       i++;
     });
   }
@@ -436,36 +451,44 @@ export class AppComponent {
     result = result.concat(this.getLastACtionAsInput());
     result = result.concat(this.getTailDirection());
     result = result.concat(this.getLosingMovesAsInput());
-    result = result.concat(this.getBorderAsInput());
+    // result = result.concat(this.getBorderAsInput());
 
     return result;
   }
 
-  getBorderAsInput(): number[]{
-    let result: number[] = []
+  getBorderAsInput(): number[] {
+    let result: number[] = [];
     let maxX: number = this.WIDTH / this.gridScale;
     let maxY: number = this.HEIGHT / this.gridScale;
-    for (let i: number = 0; i < maxX; i++){
-      if (this.snake.some(snakeCoord => snakeCoord.x == i && snakeCoord.y == 0)){
-        result.push(1)
-      }else{
+    for (let i: number = 0; i < maxX; i++) {
+      if (
+        this.snake.some(snakeCoord => snakeCoord.x == i && snakeCoord.y == 0)
+      ) {
+        result.push(1);
+      } else {
         result.push(0);
       }
-      if (this.snake.some(snakeCoord => snakeCoord.x == i && snakeCoord.y == maxY)){
-        result.push(1)
-      }else{
+      if (
+        this.snake.some(snakeCoord => snakeCoord.x == i && snakeCoord.y == maxY)
+      ) {
+        result.push(1);
+      } else {
         result.push(0);
       }
     }
-    for (let i: number = 0; i < maxY; i++){
-      if (this.snake.some(snakeCoord => snakeCoord.y == i && snakeCoord.x == 0)){
-        result.push(1)
-      }else{
+    for (let i: number = 0; i < maxY; i++) {
+      if (
+        this.snake.some(snakeCoord => snakeCoord.y == i && snakeCoord.x == 0)
+      ) {
+        result.push(1);
+      } else {
         result.push(0);
       }
-      if (this.snake.some(snakeCoord => snakeCoord.y == i && snakeCoord.x == maxX)){
-        result.push(1)
-      }else{
+      if (
+        this.snake.some(snakeCoord => snakeCoord.y == i && snakeCoord.x == maxX)
+      ) {
+        result.push(1);
+      } else {
         result.push(0);
       }
     }
@@ -491,6 +514,8 @@ export class AppComponent {
     if (this.isMoveLosing(down)) {
       result[3] = 1;
     }
+    // console.log(current);
+    // console.log(result);
     return result;
   }
 
@@ -704,8 +729,9 @@ export class AppComponent {
   reset(): void {
     this.done = false;
     this.score = 0;
+    this.movesAlive = 0;
     this.foodSquare = null;
-    this.action = Move.DOWN;
+    this.action = Move.RIGHT;
     this.initSnake();
     this.dropFoodOnAvailableSquare();
     // if (this.intervalSub != null){
@@ -730,12 +756,9 @@ export class AppComponent {
     // }
 
     let predictedAction: Move = Move[Move[action]];
-
-    this.action = predictedAction;
-    this.makeMove();
-    // if (this.gameNo > 200){
-    this.redraw();
-    // }
+    if (!this.HUMAN_AGENT) {
+      this.action = predictedAction;
+    }
   }
 
   redraw(): void {
@@ -750,14 +773,29 @@ export class AppComponent {
       this.gridScale - 2
     );
     this.ctx.fillStyle = "red";
-    this.snake.forEach(snakeCoord => {
+    for (let i = 0; i < this.snake.length - 1; i++) {
       this.ctx.fillRect(
-        snakeCoord.x * this.gridScale,
-        snakeCoord.y * this.gridScale,
+        this.snake[i].x * this.gridScale,
+        this.snake[i].y * this.gridScale,
         this.gridScale - 2,
         this.gridScale - 2
       );
-    });
+    }
+    this.ctx.fillStyle = "purple";
+    this.ctx.fillRect(
+      this.snake[this.snake.length - 1].x * this.gridScale,
+      this.snake[this.snake.length - 1].y * this.gridScale,
+      this.gridScale - 2,
+      this.gridScale - 2
+    );
+    // this.snake.forEach(snakeCoord => {
+    //   this.ctx.fillRect(
+    //     snakeCoord.x * this.gridScale,
+    //     snakeCoord.y * this.gridScale,
+    //     this.gridScale - 2,
+    //     this.gridScale - 2
+    //   );
+    // });
   }
 
   initSnake(): void {
@@ -814,16 +852,35 @@ export class AppComponent {
         break;
       }
     }
+    this.snake.push(currentCoord);
 
     if (this.isMoveLosing(currentCoord)) {
       // alert("koniec gry");
+      this.snake.shift();
       this.done = true;
       this.reward = -1.0;
       this.movesSinceLastEating = 0;
+
+      let tempReward = -(
+        this.movesAlive /
+        (((this.HEIGHT / this.gridScale) * this.WIDTH) / this.gridScale)
+      );
+      let index: number = this.agent.transitions.length - 1;
+      while (
+        index >=
+        Math.max(this.movesAlive, this.agent.transitions.length - 1 - 5)
+      ) {
+        this.agent.transitions[index][2] = Math.max(
+          this.agent.transitions[index][2] + tempReward,
+          -1
+        );
+        index--;
+      }
+
+      this.movesAlive = 0;
       return;
     }
-    this.snake.push(currentCoord);
-
+    this.movesAlive++;
     if (
       currentCoord.x === this.foodSquare.x &&
       currentCoord.y === this.foodSquare.y
@@ -856,20 +913,38 @@ export class AppComponent {
       this.reward = 0;
 
       let maxIterations: number = 19 * this.snake.length + 10;
-
-      if (this.movesSinceLastEating >= maxIterations) {
-        this.reward -= Math.min(this.reward, -0.5 / this.snake.length);
-        let lastIndex: number = this.agent.transitions.length - 1;
-        let iterator: number = lastIndex;
-        while (iterator >= Math.max(0, lastIndex - maxIterations + 1)) {
-          this.agent.transitions[iterator][2] -= Math.min(
-            this.agent.transitions[iterator][2],
-            this.reward
+      if (this.movesAlive % maxIterations == 0) {
+        let tempReward =
+          this.score < 10
+            ? 0
+            : this.snake.length /
+              (((this.HEIGHT / this.gridScale) * this.WIDTH) / this.gridScale);
+        let index: number = this.agent.transitions.length - 1;
+        while (
+          index >=
+          Math.max(0, this.agent.transitions.length - 1 - this.movesAlive)
+        ) {
+          this.agent.transitions[index][2] = Math.min(
+            this.agent.transitions[index][2] + tempReward,
+            1
           );
-          iterator--;
+          index--;
         }
-        this.movesSinceLastEating = 0;
       }
+
+      // if (this.movesSinceLastEating >= maxIterations) {
+      //   this.reward -= Math.min(this.reward, -0.5 / this.snake.length);
+      //   let lastIndex: number = this.agent.transitions.length - 1;
+      //   let iterator: number = lastIndex;
+      //   while (iterator >= Math.max(0, lastIndex - maxIterations + 1)) {
+      //     this.agent.transitions[iterator][2] -= Math.min(
+      //       this.agent.transitions[iterator][2],
+      //       this.reward
+      //     );
+      //     iterator--;
+      //   }
+      //   this.movesSinceLastEating = 0;
+      // }
 
       this.currentDistanceToFood = newCurrentDistanceToFood;
     }
@@ -896,9 +971,11 @@ export class AppComponent {
   }
 
   isMoveLosing(candidateCoord: Coord): boolean {
-    let isCandidateCoordHittingSnake: boolean = this.snake.some(
-      coord => coord.x === candidateCoord.x && coord.y === candidateCoord.y
-    );
+    let isCandidateCoordHittingSnake: boolean = this.snake
+      .slice(0, this.snake.length - 1)
+      .some(
+        coord => coord.x === candidateCoord.x && coord.y === candidateCoord.y
+      );
     return (
       candidateCoord.x === this.WIDTH / this.gridScale ||
       candidateCoord.y === this.HEIGHT / this.gridScale ||

@@ -15,10 +15,17 @@
 <div>highScore: {{highScore}}</div>
 <div>gameNo: {{gameNo}}</div>
 <div>epsilon: {{agent.epsilon}}</div>
-
-<button (click)="stopLearning()">finish learning</button>
+<div>movesAlive: {{movesAlive}}</div>
+<div style="display:block">
+width: <input type="number" [(ngModel)]="WIDTH"/>{{myModel}}
+height: <input type="number" [(ngModel)]="HEIGHT"/>{{myModel}}
+</div>
+<div *ngIf="!HUMAN_AGENT">
 <button (click)="startLearning(1000)">train slow</button>
 <button (click)="startLearning(100)">train medium</button>
 <button (click)="startLearning(1)">train fast</button>
-
-
+</div>
+<button (click)="stopLearning()">finish learning</button>
+<div style="display:block">
+  <input type="checkbox" [(ngModel)]="HUMAN_AGENT" (change)="enableHumanAgent()"> HUMAN_AGENT
+</div>
